@@ -11,28 +11,10 @@ const rain = document.getElementById('rain');
 
 const QUESTIONS = [
   {
-    kind: 'basic',
-    q: 'Ты сегодня вообще спал?',
-    yes: 'Глаза открыты — считай, спал.',
-    no: 'Значит, ты не спишь. И не будешь.'
-  },
-  {
-    kind: 'basic',
-    q: 'Ты сегодня пил воду или только кофе?',
-    yes: 'Вода — это хорошо. Ты почти человек.',
-    no: 'Только кофе. Уже не человек.'
-  },
-  {
-    kind: 'basic',
-    q: 'Ты обычно делаешь то, что обещал себе вчера?',
-    yes: 'Дисциплина. Уважаю.',
-    no: 'Как и обещал: никогда.'
-  },
-  {
     kind: 'persona',
     q: 'На вечеринке ты пойдёшь танцевать, даже если не умеешь?',
-    yes: 'Ты — тот самый человек в углу.',
-    no: 'Ты наблюдаешь. Все за тобой наблюдают.'
+    yes: 'Ты — тот самый человек в углу, который всех заводит.',
+    no: 'Ты наблюдаешь в углу. Все за тобой наблюдают.'
   },
   {
     kind: 'persona',
@@ -435,7 +417,7 @@ function resetButtons() {
 function renderQuestion() {
   questionEl.textContent = current().q;
   const total = QUESTIONS.length;
-  const kind = current().kind === 'trap' ? 'Главный вопрос' : current().kind === 'persona' ? 'Тест личности' : 'Разминка';
+  const kind = current().kind === 'trap' ? 'Главный вопрос' : 'Тест личности';
   counter.textContent = kind + ' · ' + (state.index + 1) + ' из ' + total;
   subtitle.textContent = 'Обе кнопки убегают от пальца. Трусливые.';
   answerEl.hidden = true;
