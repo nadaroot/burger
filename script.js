@@ -17,6 +17,18 @@ const MOAN_URL = 'assets/moan.mp3';
 
 const QUESTIONS = [
   {
+    kind: 'persona',
+    q: 'На вечеринке ты пойдёшь танцевать, даже если не умеешь?',
+    yes: 'Ты — тот самый человек в углу, который всех заводит.',
+    no: 'Ты наблюдаешь в углу. Все за тобой наблюдают.'
+  },
+  {
+    kind: 'persona',
+    q: 'Тебя бесит, когда тебе перебивают?',
+    yes: 'Тип личности: взрывной.',
+    no: 'Тип личности: тёплый и пушистый.'
+  },
+  {
     kind: 'trap',
     q: 'Ты жирная свинка?',
     yes: 'ИДИ ЕСТЬ БУРГЕРЫ!',
@@ -172,8 +184,8 @@ function synthMoan(ctx, startOffset, length) {
 
   const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, t);
-  env.gain.exponentialRampToValueAtTime(0.55, t + length * 0.22);
-  env.gain.setValueAtTime(0.55, t + length * 0.5);
+  env.gain.exponentialRampToValueAtTime(1, t + length * 0.22);
+  env.gain.setValueAtTime(1, t + length * 0.5);
   env.gain.exponentialRampToValueAtTime(0.0001, end);
 
   osc.connect(formantA);
@@ -205,20 +217,44 @@ function playMoans() {
     return;
   }
 
-  if (!player.src.endsWith(MOAN_URL)) player.src = MOAN_URL;
+  if (!player.getAttribute('src')) player.setAttribute('src', MOAN_URL);
+
+  try {
+    if (player.readyState >= 1) player.currentTime = 0;
+  } catch (e) {
+    return synthMoans();
+  }
+
   player.loop = true;
-  player.currentTime = 0;
   player.volume = 1;
   player.muted = false;
 
   const attempt = player.play();
   if (attempt && attempt.catch) {
-    attempt.catch(() => {
-      player.play().catch(() => {
-        state.moanOk = false;
-        synthMoans();
-      });
-    });
+    attempt.catch(() => retryPlayback());
+  }
+
+  setTimeout(() => {
+    if (player.paused) retryPlayback();
+  }, 600);
+  setTimeout(() => {
+    if (player.paused) retryPlayback();
+  }, 1400);
+  setTimeout(() => {
+    if (player.paused) {
+      state.moanOk = false;
+      synthMoans();
+    }
+  }, 3000);
+}
+
+function retryPlayback() {
+  try {
+    const again = player.play();
+    if (again && again.catch) again.catch(() => {});
+  } catch (e) {
+    state.moanOk = false;
+    synthMoans();
   }
 }
 
