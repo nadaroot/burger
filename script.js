@@ -45,7 +45,6 @@ const QUESTIONS = [
 const RESULT_TITLE = 'ТИП ЛИЧНОСТИ: ЖИРНАЯ СВИНКА';
 const RESULT_SUB = 'Иди есть бургеры';
 
-const MAX_BURGERS = 90;
 const FLEE_RADIUS = 230;
 const FLEE_COOLDOWN = 32;
 
@@ -247,8 +246,9 @@ function synthMoan(ctx, startOffset, length) {
 function synthMoans() {
   const ctx = unlockAudioCtx();
   if (!ctx) return;
-  synthMoan(ctx, 0, 4.2);
-  synthMoan(ctx, 4.4, 3.4);
+  for (let i = 0; i < 6; i++) {
+    synthMoan(ctx, i * 4.2, 4);
+  }
 }
 
 function playMoans() {
@@ -258,6 +258,7 @@ function playMoans() {
   }
 
   if (!player.src.endsWith(MOAN_URL)) player.src = MOAN_URL;
+  player.loop = true;
   player.currentTime = 0;
   player.volume = 0.9;
 
@@ -320,21 +321,42 @@ function startRain() {
   document.body.classList.add('party');
   if (state.raining) return;
   state.raining = true;
-  for (let i = 0; i < MAX_BURGERS; i++) {
-    setTimeout(spawnBurger, i * rand(45, 110));
+
+  for (let wave = 0; wave < 10; wave++) {
+    for (let i = 0; i < 14; i++) {
+      setTimeout(spawnBurger, wave * 900 + i * rand(40, 90));
+    }
   }
+}
+
+function viewport() {
+  const vv = window.visualViewport;
+  return {
+    w: Math.round(vv ? vv.width : document.documentElement.clientWidth),
+    h: Math.round(vv ? vv.height : window.innerHeight)
+  };
 }
 
 function placeNoButton() {
   const rect = btnNo.getBoundingClientRect();
-  btnNo.style.left = (window.innerWidth / 2 - rect.width / 2) + 'px';
-  btnNo.style.top = (window.innerHeight - rect.height - 18) + 'px';
+  const vp = viewport();
+  const left = Math.min(Math.max(10, vp.w / 2 - rect.width / 2), Math.max(10, vp.w - rect.width - 10));
+  const top = Math.min(Math.max(10, vp.h - rect.height - 18), Math.max(10, vp.h - rect.height - 10));
+  btnNo.style.left = left + 'px';
+  btnNo.style.top = top + 'px';
   btnNo.style.bottom = 'auto';
   btnNo.style.transform = 'rotate(0deg)';
 }
 
 function applyNoMode() {
   const rogue = isTrap();
+
+  if (rogue && btnNo.parentElement !== document.body) {
+    document.body.appendChild(btnNo);
+  } else if (!rogue && btnNo.parentElement !== stage) {
+    stage.appendChild(btnNo);
+  }
+
   btnNo.classList.toggle('rogue', rogue);
   btnNo.style.left = '';
   btnNo.style.top = '';
@@ -346,15 +368,16 @@ function applyNoMode() {
 
 function moveAway(px, py) {
   const rect = btnNo.getBoundingClientRect();
-  const margin = 10;
-  const maxLeft = Math.max(0, window.innerWidth - rect.width - margin * 2);
-  const maxTop = Math.max(0, window.innerHeight - rect.height - margin * 2);
+  const margin = 12;
+  const vp = viewport();
+  const maxLeft = Math.max(0, vp.w - rect.width - margin * 2);
+  const maxTop = Math.max(0, vp.h - rect.height - margin * 2);
   const minDistance = Math.max(rect.width, rect.height) * 1.05 + 70;
 
   let best = null;
   let bestDist = -Infinity;
 
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 120; i++) {
     const left = rand(0, maxLeft);
     const top = rand(0, maxTop);
     const cx = left + margin + rect.width / 2;
@@ -369,6 +392,7 @@ function moveAway(px, py) {
 
   btnNo.style.left = (best.left + margin) + 'px';
   btnNo.style.top = (best.top + margin) + 'px';
+  btnNo.style.bottom = 'auto';
   btnNo.style.transform = 'rotate(' + rand(-18, 18) + 'deg)';
 }
 
