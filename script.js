@@ -8,7 +8,6 @@ const subtitle = document.getElementById('subtitle');
 const answerEl = document.getElementById('answer');
 const btnYes = document.getElementById('btnYes');
 const btnNo = document.getElementById('btnNo');
-const btnReset = document.getElementById('btnReset');
 const rain = document.getElementById('rain');
 const player = document.getElementById('player');
 
@@ -443,7 +442,7 @@ function advance() {
 
 function finishTest() {
   questionEl.textContent = RESULT_TITLE;
-  subtitle.textContent = 'Да: ' + state.scores.yes + '. Нет: ' + state.scores.no + '.';
+  subtitle.textContent = 'Тест пройден. Честно, как и просили.';
   answerEl.textContent = RESULT_SUB + '!';
   answerEl.hidden = false;
   playBurgerSound();
@@ -465,7 +464,7 @@ function onYes() {
   answerEl.textContent = current().yes;
   answerEl.hidden = false;
   playDodgeSound();
-  state.advanceTimer = setTimeout(advance, 2600);
+  state.advanceTimer = setTimeout(advance, 1800);
 }
 
 function onNo() {
@@ -475,7 +474,7 @@ function onNo() {
   answerEl.textContent = current().no;
   answerEl.hidden = false;
   playDodgeSound();
-  state.advanceTimer = setTimeout(advance, 2600);
+  state.advanceTimer = setTimeout(advance, 1800);
 }
 
 function reset() {
@@ -511,7 +510,7 @@ btnStart.addEventListener('click', start);
 document.addEventListener('pointermove', flee, { passive: true });
 
 document.addEventListener('pointerdown', (event) => {
-  if (!state.started) return;
+  if (!state.started || !isTrap()) return;
   const target = event.target.closest('.btn-no');
   if (!target || state.locked) return;
   event.preventDefault();
@@ -527,7 +526,6 @@ btnNo.addEventListener('click', (event) => {
   }
   onNo();
 });
-btnReset.addEventListener('click', reset);
 
 btnNo.addEventListener('pointerenter', startle);
 btnNo.addEventListener('pointerover', startle);
