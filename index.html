@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#2b1400">
-<title>Ты жирная свинка?</title>
+<meta name="theme-color" content="#8a4a1f">
+<title>Опросник: ты жирная свинка?</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,19 +13,19 @@
   <div class="wall-light"></div>
 </div>
 
-<main class="wrap">
-  <h1 class="title">Ты жирная свинка?</h1>
-  <p class="subtitle" id="subtitle">Выбери ответ. Но сначала подумай.</p>
+<main class="card">
+  <p class="counter" id="counter">Вопрос 1 из 6</p>
+  <h1 class="question" id="question">Ты жирная свинка?</h1>
+  <p class="subtitle" id="subtitle">Кнопка «Да» убегает. Она трусливая.</p>
 
-  <div class="arena" id="arena">
-    <button class="btn btn-no" id="btnNo">Нет</button>
+  <div class="stage" id="stage">
     <button class="btn btn-yes" id="btnYes">Да</button>
+    <button class="btn btn-no" id="btnNo">Нет</button>
   </div>
 
-  <div class="result" id="result" hidden>
-    <p class="result-text" id="resultText"></p>
-    <button class="btn btn-reset" id="btnReset">Заново</button>
-  </div>
+  <p class="answer" id="answer" hidden></p>
+
+  <button class="btn btn-reset" id="btnReset">Заново</button>
 </main>
 
 <div class="rain" id="rain" aria-hidden="true"></div>

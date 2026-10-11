@@ -1,41 +1,83 @@
-const arena = document.getElementById('arena');
+const wall = document.getElementById('wall');
+const card = document.querySelector('.card');
+const stage = document.getElementById('stage');
+const counter = document.getElementById('counter');
+const questionEl = document.getElementById('question');
+const subtitle = document.getElementById('subtitle');
+const answerEl = document.getElementById('answer');
 const btnYes = document.getElementById('btnYes');
 const btnNo = document.getElementById('btnNo');
 const btnReset = document.getElementById('btnReset');
-const result = document.getElementById('result');
-const resultText = document.getElementById('resultText');
-const subtitle = document.getElementById('subtitle');
 const rain = document.getElementById('rain');
-const bgBuns = document.getElementById('wall');
 
-const MAX_DODGES = 6;
-const MAX_BURGERS = 90;
+const QUESTIONS = [
+  {
+    q: 'Ты сегодня ел что-то, кроме воздуха?',
+    yes: 'Поздравляю. Ты овощ.',
+    no: 'Врёшь. Все врут. Дальше.'
+  },
+  {
+    q: 'Ты когда-нибудь говорил «я на диете» с полным ртом?',
+    yes: 'Диета — это когда ешь салат и плачешь.',
+    no: 'Значит, ты не на диете. Как и все.'
+  },
+  {
+    q: 'Ты храпишь во сне или постоянно?',
+    yes: 'Тсс. Не буди свинью.',
+    no: 'Тогда послушай, как ты отвечаешь на этот вопрос.'
+  },
+  {
+    q: 'Ты последний раз бегал не за автобусом?',
+    yes: 'Спорт — это дорога до холодильника.',
+    no: 'Беги. Прямо сейчас. Я подожду.'
+  },
+  {
+    q: 'Ты можешь посмотреть на салат и не подумать про стейк?',
+    yes: 'Мысль — это уже половина обеда.',
+    no: 'Салат проиграл. Салат всегда проигрывает.'
+  },
+  {
+    q: 'Ты жирная свинка?',
+    yes: 'ИДИ ЕСТЬ БУРГЕРЫ!',
+    no: 'Не ври мне. Ты жирная свинка.'
+  }
+];
 
-const state = {
-  dodges: 0,
-  tamed: false,
-  raining: false,
-  audio: null
-};
-
-const taunts = [
+const TAUNTS = [
   'Не, не, не...',
   'Ага, попробуй ещё!',
   'Ловко ты щёлкнул(а).',
   'Кнопка занята.',
-  'Ну ладно, ладно...',
   'Руки короткие?',
   'Всё, сдаюсь. Жми.'
 ];
 
-const noAnswers = [
-  'Тогда зачем ты тут сидишь?',
-  'Ну иди уже покушай.',
-  'Скучно. Уходи и ешь бургеры.'
-];
+const MAX_DODGES = 6;
+const MAX_BURGERS = 90;
+const FLEE_RADIUS = 160;
+const FLEE_COOLDOWN = 90;
+
+const state = {
+  index: 0,
+  dodges: 0,
+  tamed: false,
+  locked: false,
+  raining: false,
+  lastFlee: 0,
+  advanceTimer: 0,
+  audio: null
+};
 
 function rand(min, max) {
   return min + Math.random() * (max - min);
+}
+
+function current() {
+  return QUESTIONS[state.index];
+}
+
+function isFinal() {
+  return state.index === QUESTIONS.length - 1;
 }
 
 function unlockAudio() {
@@ -56,8 +98,8 @@ function playDodgeSound() {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'square';
-  osc.frequency.setValueAtTime(700, t);
-  osc.frequency.exponentialRampToValueAtTime(180, t + 0.18);
+  osc.frequency.setValueAtTime(760, t);
+  osc.frequency.exponentialRampToValueAtTime(170, t + 0.18);
   gain.gain.setValueAtTime(0.12, t);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
   osc.connect(gain).connect(ctx.destination);
@@ -70,7 +112,7 @@ function playBurgerSound() {
   if (!ctx) return;
 
   const duration = 1.6;
-  const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+  const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < data.length; i++) {
     const t = i / ctx.sampleRate;
@@ -110,7 +152,6 @@ function speak(text) {
     utter.lang = 'ru-RU';
     utter.rate = 0.9;
     utter.pitch = 0.75;
-    utter.volume = 1;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   } catch (e) {
@@ -141,35 +182,36 @@ function spawnBurger() {
 }
 
 function startRain() {
+  wall.classList.add('on');
+  document.body.classList.add('party');
   if (state.raining) return;
   state.raining = true;
-  bgBuns.classList.add('on');
-  document.body.classList.add('party');
-  const total = MAX_BURGERS;
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < MAX_BURGERS; i++) {
     setTimeout(spawnBurger, i * rand(45, 110));
   }
-  setTimeout(() => {
-    if (rain.children.length === 0) state.raining = false;
-  }, 9000);
 }
 
-function moveAwayFrom(x, y) {
-  const rect = arena.getBoundingClientRect();
-  const btnRect = btnYes.getBoundingClientRect();
-  const minDistance = Math.max(btnRect.width, btnRect.height) * 1.25 + 60;
+function moveAwayFrom(px, py) {
+  const stageRect = stage.getBoundingClientRect();
+  const yesRect = btnYes.getBoundingClientRect();
+  const noRect = btnNo.getBoundingClientRect();
+
+  const maxLeft = Math.max(0, stageRect.width - yesRect.width);
+  const noTop = noRect.top - stageRect.top;
+  const maxTop = Math.max(0, Math.min(stageRect.height - yesRect.height, noTop - yesRect.height - 12));
+  const minDistance = Math.max(yesRect.width, yesRect.height) * 1.1 + 50;
 
   let best = null;
-  let bestDist = -1;
+  let bestScore = -Infinity;
 
-  for (let i = 0; i < 40; i++) {
-    const left = rand(0, Math.max(1, rect.width - btnRect.width));
-    const top = rand(0, Math.max(1, rect.height - btnRect.height));
-    const centerX = rect.left + left + btnRect.width / 2;
-    const centerY = rect.top + top + btnRect.height / 2;
-    const dist = Math.hypot(centerX - x, centerY - y);
-    if (dist > bestDist) {
-      bestDist = dist;
+  for (let i = 0; i < 60; i++) {
+    const left = rand(0, maxLeft);
+    const top = rand(0, maxTop);
+    const cx = stageRect.left + left + yesRect.width / 2;
+    const cy = stageRect.top + top + yesRect.height / 2;
+    const dist = Math.hypot(cx - px, cy - py);
+    if (dist > bestScore) {
+      bestScore = dist;
       best = { left, top };
     }
     if (dist >= minDistance) break;
@@ -177,95 +219,173 @@ function moveAwayFrom(x, y) {
 
   btnYes.style.left = best.left + 'px';
   btnYes.style.top = best.top + 'px';
-  btnYes.style.transform = 'rotate(' + rand(-14, 14) + 'deg)';
+  btnYes.style.transform = 'rotate(' + rand(-16, 16) + 'deg)';
 }
 
-function dodge(event) {
-  if (state.tamed) return;
+function tame() {
+  state.tamed = true;
+  btnYes.style.animation = 'none';
+  btnYes.style.left = '50%';
+  btnYes.style.top = '26%';
+  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+  subtitle.textContent = 'Кнопка сдалась. Нажми наконец.';
+  playDodgeSound();
+}
 
-  if (event) event.preventDefault();
+function dodge(px, py) {
+  if (state.tamed || state.locked) return;
 
-  const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
-  const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
-
-  state.dodges++;
-
-  if (state.dodges >= MAX_DODGES) {
-    state.tamed = true;
-    btnYes.style.animation = 'none';
-    btnYes.style.transform = 'translate(-50%, -50%)';
-    btnYes.style.left = '50%';
-    btnYes.style.top = '45%';
-    subtitle.textContent = taunts[taunts.length - 1];
-    playDodgeSound();
+  if (state.dodges + 1 >= MAX_DODGES) {
+    state.dodges++;
+    tame();
     return;
   }
 
-  moveAwayFrom(x, y);
-  subtitle.textContent = taunts[Math.min(state.dodges, taunts.length - 1)];
+  state.dodges++;
+  moveAwayFrom(px, py);
+  subtitle.textContent = TAUNTS[Math.min(state.dodges, TAUNTS.length - 1)];
   playDodgeSound();
 }
 
-function yesAnswer() {
-  unlockAudio();
-  subtitle.textContent = 'Ты жирная свинка. Иди есть бургеры.';
-  resultText.textContent = 'ИДИ ЕСТЬ БУРГЕРЫ!';
-  result.hidden = false;
+function flee(event) {
+  if (state.tamed || state.locked) return;
+  const x = event.clientX;
+  const y = event.clientY;
+  if (typeof x !== 'number' || typeof y !== 'number') return;
+
+  const now = Date.now();
+  if (now - state.lastFlee < FLEE_COOLDOWN) return;
+
+  const rect = btnYes.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  if (Math.hypot(cx - x, cy - y) > FLEE_RADIUS) return;
+
+  state.lastFlee = now;
+  dodge(x, y);
+}
+
+function lockButtons() {
+  state.locked = true;
   btnYes.disabled = true;
   btnNo.disabled = true;
-  btnYes.style.opacity = '0.35';
-  btnNo.style.opacity = '0.35';
   btnYes.style.pointerEvents = 'none';
   btnNo.style.pointerEvents = 'none';
-  playBurgerSound();
-  startRain();
-  setTimeout(() => speak('Иди есть бургеры!'), 400);
+  btnYes.style.opacity = '0.4';
+  btnNo.style.opacity = '0.4';
 }
 
-function noAnswer() {
+function unlockButtons() {
+  state.locked = false;
+  btnYes.disabled = false;
+  btnNo.disabled = false;
+  btnYes.style.pointerEvents = '';
+  btnNo.style.pointerEvents = '';
+  btnYes.style.opacity = '1';
+  btnNo.style.opacity = '1';
+}
+
+function advance() {
+  clearTimeout(state.advanceTimer);
+  if (isFinal()) return;
+
+  state.index++;
+  state.dodges = 0;
+  state.tamed = false;
+  unlockButtons();
+  answerEl.hidden = true;
+  answerEl.textContent = '';
+
+  btnYes.style.animation = '';
+  btnYes.style.left = '50%';
+  btnYes.style.top = '26%';
+  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+
+  questionEl.textContent = current().q;
+  counter.textContent = 'Вопрос ' + (state.index + 1) + ' из ' + QUESTIONS.length;
+  subtitle.textContent = 'Кнопка «Да» убегает. Она трусливая.';
+}
+
+function showAnswer(text, nextIn) {
+  answerEl.textContent = text;
+  answerEl.hidden = false;
+  if (nextIn) state.advanceTimer = setTimeout(advance, nextIn);
+}
+
+function onYes() {
+  if (!state.tamed || state.locked) return;
+  lockButtons();
   unlockAudio();
-  subtitle.textContent = noAnswers[Math.floor(Math.random() * noAnswers.length)];
+
+  if (isFinal()) {
+    subtitle.textContent = 'Ты жирная свинка. Иди есть бургеры.';
+    answerEl.textContent = 'ИДИ ЕСТЬ БУРГЕРЫ!';
+    answerEl.hidden = false;
+    playBurgerSound();
+    startRain();
+    setTimeout(() => speak('Иди есть бургеры!'), 400);
+    return;
+  }
+
+  subtitle.textContent = 'Кнопка согласилась. И ответил(а).';
+  showAnswer(current().yes, 2600);
   playDodgeSound();
+}
+
+function onNo() {
+  if (state.locked) return;
+  unlockAudio();
+  playDodgeSound();
+
+  if (isFinal()) {
+    subtitle.textContent = 'Ну ты и свинья.';
+    answerEl.textContent = current().no;
+    answerEl.hidden = false;
+    return;
+  }
+
+  advance();
 }
 
 function reset() {
+  clearTimeout(state.advanceTimer);
+  state.index = 0;
   state.dodges = 0;
   state.tamed = false;
-  result.hidden = true;
-  resultText.textContent = '';
-  btnYes.disabled = false;
-  btnNo.disabled = false;
-  btnYes.style.opacity = '1';
-  btnNo.style.opacity = '1';
-  btnYes.style.pointerEvents = '';
-  btnNo.style.pointerEvents = '';
-  btnYes.style.animation = '';
-  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-  btnYes.style.left = '50%';
-  btnYes.style.top = '45%';
-  btnNo.style.transform = 'translate(-50%, -50%)';
-  subtitle.textContent = 'Выбери ответ. Но сначала подумай.';
+  state.locked = false;
   rain.innerHTML = '';
-  state.raining = false;
-  bgBuns.classList.remove('on');
+  wall.classList.remove('on');
   document.body.classList.remove('party');
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+  unlockButtons();
+  btnYes.style.animation = '';
+  btnYes.style.left = '50%';
+  btnYes.style.top = '26%';
+  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+
+  answerEl.hidden = true;
+  answerEl.textContent = '';
+  questionEl.textContent = current().q;
+  counter.textContent = 'Вопрос 1 из ' + QUESTIONS.length;
+  subtitle.textContent = 'Кнопка «Да» убегает. Она трусливая.';
 }
 
-btnYes.addEventListener('pointerdown', dodge);
+document.addEventListener('pointermove', flee, { passive: true });
+document.addEventListener('pointerdown', (event) => {
+  if (event.target.closest('.btn-yes')) {
+    event.preventDefault();
+    dodge(event.clientX, event.clientY);
+  }
+}, { passive: false });
+
 btnYes.addEventListener('click', (event) => {
-  if (state.tamed) yesAnswer();
-  else dodge(event);
+  if (state.tamed) onYes();
+  else if (event.detail === 0) onYes();
 });
 
-btnYes.addEventListener('pointerenter', dodge);
-btnYes.addEventListener('mousemove', dodge);
-btnYes.addEventListener('touchstart', dodge, { passive: false });
-
-btnNo.addEventListener('click', noAnswer);
-btnNo.addEventListener('pointerenter', dodge);
-btnNo.addEventListener('mousemove', dodge);
-
+btnNo.addEventListener('click', onNo);
 btnReset.addEventListener('click', reset);
 
 document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -274,7 +394,7 @@ document.addEventListener('contextmenu', (e) => {
 });
 
 window.addEventListener('resize', () => {
-  if (!state.tamed && state.dodges > 0) {
-    moveAwayFrom(-9999, -9999);
+  if (!state.tamed && !state.locked && state.dodges > 0) {
+    moveAwayFrom(-99999, -99999);
   }
 });
