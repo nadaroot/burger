@@ -113,39 +113,6 @@ function unlockAll() {
   primeSpeech();
 }
 
-function playStartSound() {
-  const ctx = unlockAudioCtx();
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(420, t);
-  osc.frequency.exponentialRampToValueAtTime(880, t + 0.25);
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.15, t + 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(t);
-  osc.stop(t + 0.45);
-}
-
-function playDodgeSound() {
-  const ctx = unlockAudioCtx();
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(800, t);
-  osc.frequency.exponentialRampToValueAtTime(180, t + 0.16);
-  gain.gain.setValueAtTime(0.1, t);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(t);
-  osc.stop(t + 0.2);
-}
-
 function playBurgerSound() {
   const ctx = unlockAudioCtx();
   if (!ctx) return;
@@ -277,43 +244,52 @@ player.addEventListener('error', () => {
   state.moanOk = false;
 });
 
-function speak(text) {
-  if (!('speechSynthesis' in window)) return;
-  try {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ru-RU';
-    utter.rate = 0.85;
-    utter.pitch = 1.35;
-    const voices = window.speechSynthesis.getVoices();
-    const ru = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('ru'));
-    if (ru) utter.voice = ru;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
-  } catch (e) {
-    return;
+const falling = [];
+let tickerId = null;
+
+function tick() {
+  const now = Date.now();
+  for (let i = falling.length - 1; i >= 0; i--) {
+    const item = falling[i];
+    const progress = Math.min(1, (now - item.start) / item.duration);
+    const y = item.from + (item.to - item.from) * progress;
+    const x = item.drift * progress;
+    const rotation = item.spin * progress;
+    item.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + rotation.toFixed(1) + 'deg)';
+    if (progress >= 1) {
+      item.el.remove();
+      falling.splice(i, 1);
+    }
   }
+}
+
+function startTicker() {
+  if (tickerId !== null) return;
+  tickerId = setInterval(tick, 33);
 }
 
 function spawnBurger() {
   const burger = document.createElement('div');
   burger.className = 'burger';
   burger.textContent = Math.random() > 0.25 ? '\u{1F354}' : '\u{1F35F}';
-  burger.style.left = rand(-5, 100) + 'vw';
-  burger.style.setProperty('--size', rand(38, 110) + 'px');
-  burger.style.opacity = String(rand(0.75, 1));
+  burger.style.left = rand(-4, 96) + 'vw';
+  burger.style.setProperty('--size', rand(42, 120) + 'px');
+  burger.style.opacity = String(rand(0.8, 1));
+  burger.style.zIndex = String(5 + Math.floor(Math.random() * 4));
+  burger.style.transform = 'translate3d(0,-180px,0)';
   rain.appendChild(burger);
 
-  const duration = rand(1.1, 2.1);
-  const drift = rand(-30, 30);
-  const spin = rand(-540, 540);
+  falling.push({
+    el: burger,
+    start: Date.now(),
+    duration: rand(1100, 2200),
+    from: -180,
+    to: viewport().h + 220,
+    drift: rand(-40, 40),
+    spin: rand(-620, 620)
+  });
 
-  burger.animate(
-    [
-      { transform: 'translate3d(0, -120px, 0) rotate(0deg)' },
-      { transform: `translate3d(${drift}px, 105vh, 0) rotate(${spin}deg)` }
-    ],
-    { duration: duration * 1000, easing: 'cubic-bezier(.35,.05,.6,1)' }
-  ).onfinish = () => burger.remove();
+  startTicker();
 }
 
 function startRain() {
@@ -415,7 +391,6 @@ function flee(event) {
 
   lastFlee = now;
   moveAway(px, py);
-  playDodgeSound();
 }
 
 function startle(event) {
@@ -423,7 +398,6 @@ function startle(event) {
   if (event.cancelable) event.preventDefault();
   lastFlee = Date.now();
   moveAway(event.clientX, event.clientY);
-  playDodgeSound();
 }
 
 function lockButtons() {
@@ -472,7 +446,6 @@ function finishTest() {
   playBurgerSound();
   startRain();
   playMoans();
-  setTimeout(() => speak('Иди есть бургеры!'), 600);
 }
 
 function onYes() {
@@ -487,7 +460,6 @@ function onYes() {
 
   answerEl.textContent = current().yes;
   answerEl.hidden = false;
-  playDodgeSound();
   state.advanceTimer = setTimeout(advance, 1800);
 }
 
@@ -497,7 +469,6 @@ function onNo() {
   state.scores.no++;
   answerEl.textContent = current().no;
   answerEl.hidden = false;
-  playDodgeSound();
   state.advanceTimer = setTimeout(advance, 1800);
 }
 
@@ -520,7 +491,6 @@ function start() {
   state.started = true;
 
   unlockAll();
-  playStartSound();
 
   landing.classList.add('is-hidden');
   card.classList.remove('is-hidden');

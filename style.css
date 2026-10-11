@@ -124,7 +124,7 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
   position: absolute;
   left: 50%;
   top: 26%;
-  background: linear-gradient(#ff5a5a, #c81e1e);
+  background: linear-gradient(#48cf76, #1c8a46);
   transform: translate(-50%, -50%) rotate(0deg);
   z-index: 2;
 }
@@ -133,7 +133,9 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
   position: absolute;
   left: 50%;
   top: auto;
-  bottom: 14px;
+  bottom: 12px;
+  padding: 26px 52px;
+  font-size: clamp(26px, 8vw, 40px);
   background: linear-gradient(#ff5a5a, #c81e1e);
   transform: translate(-50%, 0) rotate(0deg);
   z-index: 3;
@@ -274,7 +276,8 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
 
 .burger {
   position: absolute;
-  top: -120px;
+  top: 0;
+  left: 0;
   font-size: var(--size, 60px);
   line-height: 1;
   will-change: transform;
