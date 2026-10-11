@@ -6,7 +6,7 @@ const result = document.getElementById('result');
 const resultText = document.getElementById('resultText');
 const subtitle = document.getElementById('subtitle');
 const rain = document.getElementById('rain');
-const bgBuns = document.getElementById('bgBuns');
+const bgBuns = document.getElementById('wall');
 
 const MAX_DODGES = 6;
 const MAX_BURGERS = 90;
@@ -143,6 +143,8 @@ function spawnBurger() {
 function startRain() {
   if (state.raining) return;
   state.raining = true;
+  bgBuns.classList.add('on');
+  document.body.classList.add('party');
   const total = MAX_BURGERS;
   for (let i = 0; i < total; i++) {
     setTimeout(spawnBurger, i * rand(45, 110));
@@ -245,6 +247,8 @@ function reset() {
   subtitle.textContent = 'Выбери ответ. Но сначала подумай.';
   rain.innerHTML = '';
   state.raining = false;
+  bgBuns.classList.remove('on');
+  document.body.classList.remove('party');
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 
@@ -274,9 +278,3 @@ window.addEventListener('resize', () => {
     moveAwayFrom(-9999, -9999);
   }
 });
-
-let bgCount = 0;
-while (bgCount < 40) {
-  bgBuns.appendChild(document.createTextNode('\u{1F354} '));
-  bgCount++;
-}
