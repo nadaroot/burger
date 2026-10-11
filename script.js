@@ -17,24 +17,6 @@ const MOAN_URL = 'assets/moan.mp3';
 
 const QUESTIONS = [
   {
-    kind: 'persona',
-    q: 'На вечеринке ты пойдёшь танцевать, даже если не умеешь?',
-    yes: 'Ты — тот самый человек в углу, который всех заводит.',
-    no: 'Ты наблюдаешь в углу. Все за тобой наблюдают.'
-  },
-  {
-    kind: 'persona',
-    q: 'Тебя бесит, когда тебе перебивают?',
-    yes: 'Тип личности: взрывной.',
-    no: 'Тип личности: тёплый и пушистый.'
-  },
-  {
-    kind: 'persona',
-    q: 'Ты скорее съешь то, что лежит дома, чем пойдёшь в магазин?',
-    yes: 'Логика. Хотя и путь к холодильнику.',
-    no: 'Приключение. А счёт — потом.'
-  },
-  {
     kind: 'trap',
     q: 'Ты жирная свинка?',
     yes: 'ИДИ ЕСТЬ БУРГЕРЫ!',
@@ -87,7 +69,7 @@ function primeMediaElement() {
   if (state.primed) return;
   state.primed = true;
   const silent = new Audio(SILENT_WAV);
-  silent.volume = 0.01;
+  silent.volume = 1;
   silent.playsInline = true;
   const attempt = silent.play();
   if (attempt && attempt.catch) attempt.catch(() => {});
@@ -226,7 +208,8 @@ function playMoans() {
   if (!player.src.endsWith(MOAN_URL)) player.src = MOAN_URL;
   player.loop = true;
   player.currentTime = 0;
-  player.volume = 0.9;
+  player.volume = 1;
+  player.muted = false;
 
   const attempt = player.play();
   if (attempt && attempt.catch) {
@@ -240,13 +223,15 @@ function playMoans() {
 }
 
 player.addEventListener('error', () => {
-  state.moanOk = false;
+  if (player.currentSrc || player.getAttribute('src')) state.moanOk = false;
 });
 
 function goBlack() {
   wall.classList.add('on');
   blackout.classList.add('on');
   document.body.classList.add('party');
+  btnYes.style.opacity = '0';
+  btnNo.style.opacity = '0';
 }
 
 function viewport() {
@@ -443,6 +428,8 @@ function start() {
 }
 
 btnStart.addEventListener('click', start);
+
+document.addEventListener('pointerdown', unlockAll, { capture: true });
 
 document.addEventListener('pointermove', flee, { passive: true });
 
