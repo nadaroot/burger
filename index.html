@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#8a4a1f">
-<title>Опросник: ты жирная свинка?</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Тест личности: ты жирная свинка?</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,8 +14,12 @@
   <div class="wall-light"></div>
 </div>
 
+<div class="unlock" id="unlock">
+  <span class="unlock-icon">🔊</span>
+  <span class="unlock-text">Нажми на экран — сайт включит звук</span>
+</div>
+
 <main class="card">
-  <p class="counter" id="counter">Вопрос 1 из 6</p>
   <h1 class="question" id="question">Ты жирная свинка?</h1>
   <p class="subtitle" id="subtitle">Обе кнопки убегают от пальца. Трусливые.</p>
 
@@ -29,6 +34,8 @@
 </main>
 
 <div class="rain" id="rain" aria-hidden="true"></div>
+
+<audio id="player" preload="auto" playsinline webkit-playsinline></audio>
 
 <script src="script.js"></script>
 </body>

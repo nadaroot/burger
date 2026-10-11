@@ -131,14 +131,36 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
 }
 
 .btn-no {
-  position: absolute;
+  position: fixed;
   left: 50%;
   top: auto;
-  bottom: 8px;
+  bottom: 14px;
   background: linear-gradient(#48cf76, #1c8a46);
   transform: translate(-50%, 0) rotate(0deg);
-  z-index: 3;
+  z-index: 6;
 }
+
+.unlock {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, .72);
+  color: #ffd34d;
+  font-size: 15px;
+  font-weight: 700;
+  transition: transform .35s ease, opacity .35s ease;
+}
+
+.unlock.hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
+
+.unlock-icon { font-size: 20px; }
 
 .btn-reset {
   margin-top: 14px;
