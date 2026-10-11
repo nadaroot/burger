@@ -53,20 +53,19 @@ const TAUNTS = [
 
 const MAX_DODGES = 6;
 const MAX_BURGERS = 90;
-const FLEE_RADIUS = 170;
-const FLEE_COOLDOWN = 90;
+const FLEE_RADIUS = 190;
+const FLEE_COOLDOWN = 70;
 
 const state = {
   index: 0,
   locked: false,
   raining: false,
-  lastFlee: 0,
   advanceTimer: 0,
   audio: null
 };
 
-const yes = { el: btnYes, home: { top: '26%' }, dodges: 0, tamed: false };
-const no = { el: btnNo, home: { bottom: '8px' }, dodges: 0, tamed: false };
+const yes = { el: btnYes, home: { top: '26%' }, dodges: 0, tamed: false, lastFlee: 0 };
+const no = { el: btnNo, home: { bottom: '8px' }, dodges: 0, tamed: false, lastFlee: 0 };
 
 function rand(min, max) {
   return min + Math.max(0, max - min);
@@ -266,29 +265,25 @@ function flee(event) {
   if (typeof px !== 'number' || typeof py !== 'number') return;
 
   const now = Date.now();
-  if (now - state.lastFlee < FLEE_COOLDOWN) return;
 
-  const targets = [yes, no].filter((b) => !b.tamed);
-  if (!targets.length) return;
+  const inRange = [yes, no]
+    .filter((btn) => !btn.tamed)
+    .map((btn) => {
+      const rect = btn.el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      return { btn, dist: Math.hypot(cx - px, cy - py) };
+    })
+    .filter((item) => item.dist <= FLEE_RADIUS)
+    .sort((a, b) => a.dist - b.dist);
 
-  let nearest = null;
-  let nearestDist = Infinity;
+  if (!inRange.length) return;
 
-  for (const btn of targets) {
-    const rect = btn.el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dist = Math.hypot(cx - px, cy - py);
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearest = btn;
-    }
+  for (const item of inRange) {
+    if (now - item.btn.lastFlee < FLEE_COOLDOWN) continue;
+    item.btn.lastFlee = now;
+    dodge(item.btn, px, py);
   }
-
-  if (!nearest || nearestDist > FLEE_RADIUS) return;
-
-  state.lastFlee = now;
-  dodge(nearest, px, py);
 }
 
 function lockButtons() {
@@ -325,6 +320,8 @@ function advance() {
   state.index++;
   yes.dodges = 0;
   no.dodges = 0;
+  yes.lastFlee = 0;
+  no.lastFlee = 0;
   yes.tamed = false;
   no.tamed = false;
   unlockButtons();
@@ -388,6 +385,8 @@ function reset() {
   unlockButtons();
   yes.dodges = 0;
   no.dodges = 0;
+  yes.lastFlee = 0;
+  no.lastFlee = 0;
   yes.tamed = false;
   no.tamed = false;
   yes.el.style.animation = '';
@@ -411,6 +410,19 @@ document.addEventListener('pointerdown', (event) => {
 btnYes.addEventListener('click', onYes);
 btnNo.addEventListener('click', onNo);
 btnReset.addEventListener('click', reset);
+
+[yes, no].forEach((btn) => {
+  const startle = (event) => {
+    if (btn.tamed || state.locked) return;
+    if (event.cancelable) event.preventDefault();
+    btn.lastFlee = Date.now();
+    dodge(btn, event.clientX, event.clientY);
+  };
+  btn.el.addEventListener('pointerenter', startle);
+  btn.el.addEventListener('pointerover', startle);
+  btn.el.addEventListener('touchstart', startle, { passive: false });
+  btn.el.addEventListener('mousedown', startle);
+});
 
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('contextmenu', (e) => {
