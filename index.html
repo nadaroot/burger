@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2b1400">
+<title>Ты жирная свинка?</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg-buns" id="bgBuns"></div>
+
+<main class="wrap">
+  <h1 class="title">Ты жирная свинка?</h1>
+  <p class="subtitle" id="subtitle">Выбери ответ. Но сначала подумай.</p>
+
+  <div class="arena" id="arena">
+    <button class="btn btn-no" id="btnNo">Нет</button>
+    <button class="btn btn-yes" id="btnYes">Да</button>
+  </div>
+
+  <div class="result" id="result" hidden>
+    <p class="result-text" id="resultText"></p>
+    <button class="btn btn-reset" id="btnReset">Заново</button>
+  </div>
+</main>
+
+<div class="rain" id="rain" aria-hidden="true"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
