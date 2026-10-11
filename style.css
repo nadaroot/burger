@@ -131,13 +131,18 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
 }
 
 .btn-no {
-  position: fixed;
+  position: absolute;
   left: 50%;
   top: auto;
   bottom: 14px;
   background: linear-gradient(#48cf76, #1c8a46);
   transform: translate(-50%, 0) rotate(0deg);
   z-index: 6;
+}
+
+.btn-no.rogue {
+  position: fixed;
+  z-index: 7;
 }
 
 .unlock {

@@ -328,11 +328,21 @@ function startRain() {
 
 function placeNoButton() {
   const rect = btnNo.getBoundingClientRect();
-  const margin = 10;
   btnNo.style.left = (window.innerWidth / 2 - rect.width / 2) + 'px';
-  btnNo.style.top = (window.innerHeight - rect.height - margin - 8) + 'px';
+  btnNo.style.top = (window.innerHeight - rect.height - 18) + 'px';
   btnNo.style.bottom = 'auto';
   btnNo.style.transform = 'rotate(0deg)';
+}
+
+function applyNoMode() {
+  const rogue = isTrap();
+  btnNo.classList.toggle('rogue', rogue);
+  btnNo.style.left = '';
+  btnNo.style.top = '';
+  btnNo.style.bottom = '';
+  btnNo.style.transform = '';
+  btnNo.style.pointerEvents = rogue ? 'none' : '';
+  lastFlee = 0;
 }
 
 function moveAway(px, py) {
@@ -366,7 +376,7 @@ function moveAway(px, py) {
 let lastFlee = 0;
 
 function flee(event) {
-  if (!state.started || state.locked) return;
+  if (!state.started || state.locked || !isTrap()) return;
   const px = event.clientX;
   const py = event.clientY;
   if (typeof px !== 'number' || typeof py !== 'number') return;
@@ -386,7 +396,7 @@ function flee(event) {
 }
 
 function startle(event) {
-  if (!state.started || state.locked) return;
+  if (!state.started || state.locked || !isTrap()) return;
   if (event.cancelable) event.preventDefault();
   lastFlee = Date.now();
   moveAway(event.clientX, event.clientY);
@@ -408,7 +418,7 @@ function unlockButtons() {
   btnYes.disabled = false;
   btnNo.disabled = false;
   btnYes.style.pointerEvents = '';
-  btnNo.style.pointerEvents = '';
+  btnNo.style.pointerEvents = isTrap() ? 'none' : '';
   btnYes.style.opacity = '1';
   btnNo.style.opacity = '1';
 }
@@ -418,6 +428,7 @@ function renderQuestion() {
   subtitle.textContent = 'Отвечай честно, результат зависит от тебя';
   answerEl.hidden = true;
   answerEl.textContent = '';
+  applyNoMode();
 }
 
 function advance() {
@@ -426,8 +437,8 @@ function advance() {
   state.index++;
   unlockButtons();
   btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-  placeNoButton();
   renderQuestion();
+  if (isTrap()) placeNoButton();
 }
 
 function finishTest() {
@@ -457,6 +468,16 @@ function onYes() {
   state.advanceTimer = setTimeout(advance, 2600);
 }
 
+function onNo() {
+  if (!state.started || state.locked || isTrap()) return;
+  lockButtons();
+  state.scores.no++;
+  answerEl.textContent = current().no;
+  answerEl.hidden = false;
+  playDodgeSound();
+  state.advanceTimer = setTimeout(advance, 2600);
+}
+
 function reset() {
   clearTimeout(state.advanceTimer);
   state.index = 0;
@@ -465,10 +486,10 @@ function reset() {
   wall.classList.remove('on');
   document.body.classList.remove('party');
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  state.locked = true;
+  renderQuestion();
   unlockButtons();
   btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-  placeNoButton();
-  renderQuestion();
 }
 
 function start() {
@@ -480,8 +501,9 @@ function start() {
 
   landing.classList.add('is-hidden');
   card.classList.remove('is-hidden');
-  placeNoButton();
+  state.locked = true;
   renderQuestion();
+  unlockButtons();
 }
 
 btnStart.addEventListener('click', start);
@@ -498,8 +520,12 @@ document.addEventListener('pointerdown', (event) => {
 
 btnYes.addEventListener('click', onYes);
 btnNo.addEventListener('click', (event) => {
-  event.preventDefault();
-  startle(event);
+  if (isTrap()) {
+    event.preventDefault();
+    startle(event);
+    return;
+  }
+  onNo();
 });
 btnReset.addEventListener('click', reset);
 
@@ -519,5 +545,5 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('resize', () => {
-  if (state.started && !state.locked) moveAway(-99999, -99999);
+  if (state.started && !state.locked && isTrap()) moveAway(-99999, -99999);
 });
