@@ -1,5 +1,8 @@
 const wall = document.getElementById('wall');
 const stage = document.getElementById('stage');
+const landing = document.getElementById('landing');
+const btnStart = document.getElementById('btnStart');
+const card = document.getElementById('card');
 const questionEl = document.getElementById('question');
 const subtitle = document.getElementById('subtitle');
 const answerEl = document.getElementById('answer');
@@ -7,7 +10,6 @@ const btnYes = document.getElementById('btnYes');
 const btnNo = document.getElementById('btnNo');
 const btnReset = document.getElementById('btnReset');
 const rain = document.getElementById('rain');
-const unlockBar = document.getElementById('unlock');
 const player = document.getElementById('player');
 
 const SILENT_WAV = 'data:audio/wav;base64,UklGRqQCAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -29,12 +31,6 @@ const QUESTIONS = [
   },
   {
     kind: 'persona',
-    q: 'Ты планируешь выходные заранее или в субботу утром?',
-    yes: 'Стратег. Это всё равно не поможет.',
-    no: 'Спонтанный. Очень даже в тебе.'
-  },
-  {
-    kind: 'persona',
     q: 'Ты скорее съешь то, что лежит дома, чем пойдёшь в магазин?',
     yes: 'Логика. Хотя и путь к холодильнику.',
     no: 'Приключение. А счёт — потом.'
@@ -47,28 +43,15 @@ const QUESTIONS = [
   }
 ];
 
-const TAUNTS = [
-  'Не, не, не...',
-  'Ага, попробуй ещё!',
-  'Ловко ты щёлкнул(а).',
-  'Кнопка занята.',
-  'Руки короткие?',
-  'Всё, сдаюсь. Жми.'
-];
-
 const RESULT_TITLE = 'ТИП ЛИЧНОСТИ: ЖИРНАЯ СВИНКА';
 const RESULT_SUB = 'Иди есть бургеры';
 
-const MAX_DODGES = 5;
 const MAX_BURGERS = 90;
-const FLEE_RADIUS = 200;
-const FLEE_COOLDOWN = 60;
-const INTRO_LINE = 'Ты жирная свинка';
-
-const isIos = /iP(hone|ad|od)/.test(navigator.userAgent) ||
-  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const FLEE_RADIUS = 230;
+const FLEE_COOLDOWN = 32;
 
 const state = {
+  started: false,
   index: 0,
   locked: false,
   raining: false,
@@ -77,13 +60,8 @@ const state = {
   audio: null,
   primed: false,
   speechPrimed: false,
-  introSpoken: false,
-  moanOk: true,
-  mp3Url: null
+  moanOk: true
 };
-
-const yes = { el: btnYes, flees: false, dodges: 0, tamed: true, lastFlee: 0 };
-const no = { el: btnNo, flees: true, dodges: 0, tamed: false, lastFlee: 0 };
 
 function rand(min, max) {
   return min + Math.max(0, max - min);
@@ -111,7 +89,6 @@ function unlockAudioCtx() {
 function primeMediaElement() {
   if (state.primed) return;
   state.primed = true;
-
   const silent = new Audio(SILENT_WAV);
   silent.volume = 0.01;
   silent.playsInline = true;
@@ -136,12 +113,23 @@ function unlockAll() {
   unlockAudioCtx();
   primeMediaElement();
   primeSpeech();
-  unlockBar.classList.add('hidden');
+}
 
-  if (!state.introSpoken) {
-    state.introSpoken = true;
-    setTimeout(() => speak(INTRO_LINE), 120);
-  }
+function playStartSound() {
+  const ctx = unlockAudioCtx();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(420, t);
+  osc.frequency.exponentialRampToValueAtTime(880, t + 0.25);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.15, t + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + 0.45);
 }
 
 function playDodgeSound() {
@@ -151,13 +139,13 @@ function playDodgeSound() {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = 'square';
-  osc.frequency.setValueAtTime(760, t);
-  osc.frequency.exponentialRampToValueAtTime(170, t + 0.18);
-  gain.gain.setValueAtTime(0.12, t);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  osc.frequency.setValueAtTime(800, t);
+  osc.frequency.exponentialRampToValueAtTime(180, t + 0.16);
+  gain.gain.setValueAtTime(0.1, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
   osc.connect(gain).connect(ctx.destination);
   osc.start(t);
-  osc.stop(t + 0.22);
+  osc.stop(t + 0.2);
 }
 
 function playBurgerSound() {
@@ -265,8 +253,6 @@ function synthMoans() {
 }
 
 function playMoans() {
-  unlockAll();
-
   if (!state.moanOk) {
     synthMoans();
     return;
@@ -340,32 +326,26 @@ function startRain() {
   }
 }
 
-function resetPosition(btn) {
-  if (btn === no) {
-    no.el.style.left = '50%';
-    no.el.style.top = '';
-    no.el.style.bottom = '14px';
-    no.el.style.transform = 'translate(-50%, 0) rotate(0deg)';
-    return;
-  }
-  yes.el.style.left = '50%';
-  yes.el.style.top = '26%';
-  yes.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+function placeNoButton() {
+  const rect = btnNo.getBoundingClientRect();
+  const margin = 10;
+  btnNo.style.left = (window.innerWidth / 2 - rect.width / 2) + 'px';
+  btnNo.style.top = (window.innerHeight - rect.height - margin - 8) + 'px';
+  btnNo.style.bottom = 'auto';
+  btnNo.style.transform = 'rotate(0deg)';
 }
 
-function moveAway(btn, px, py) {
-  const rect = btn.el.getBoundingClientRect();
+function moveAway(px, py) {
+  const rect = btnNo.getBoundingClientRect();
   const margin = 10;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const maxLeft = Math.max(0, vw - rect.width - margin * 2);
-  const maxTop = Math.max(0, vh - rect.height - margin * 2);
-  const minDistance = Math.max(rect.width, rect.height) * 1.05 + 55;
+  const maxLeft = Math.max(0, window.innerWidth - rect.width - margin * 2);
+  const maxTop = Math.max(0, window.innerHeight - rect.height - margin * 2);
+  const minDistance = Math.max(rect.width, rect.height) * 1.05 + 70;
 
   let best = null;
   let bestDist = -Infinity;
 
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 100; i++) {
     const left = rand(0, maxLeft);
     const top = rand(0, maxTop);
     const cx = left + margin + rect.width / 2;
@@ -378,90 +358,64 @@ function moveAway(btn, px, py) {
     if (dist >= minDistance) break;
   }
 
-  btn.el.style.left = (best.left + margin) + 'px';
-  btn.el.style.top = (best.top + margin) + 'px';
-  btn.el.style.bottom = 'auto';
-  btn.el.style.transform = 'rotate(' + rand(-16, 16) + 'deg)';
+  btnNo.style.left = (best.left + margin) + 'px';
+  btnNo.style.top = (best.top + margin) + 'px';
+  btnNo.style.transform = 'rotate(' + rand(-18, 18) + 'deg)';
 }
 
-function tame(btn) {
-  btn.tamed = true;
-  btn.el.style.animation = 'none';
-  resetPosition(btn);
-  subtitle.textContent = '«Нет» сдался. Можешь нажать.';
-  playDodgeSound();
-}
-
-function dodge(btn, px, py) {
-  if (!btn.flees || btn.tamed || state.locked) return;
-
-  btn.dodges++;
-
-  if (btn.dodges >= MAX_DODGES) {
-    tame(btn);
-    return;
-  }
-
-  moveAway(btn, px, py);
-  subtitle.textContent = TAUNTS[Math.min(btn.dodges, TAUNTS.length - 1)];
-  playDodgeSound();
-}
+let lastFlee = 0;
 
 function flee(event) {
-  if (state.locked || !no.flees || no.tamed) return;
+  if (!state.started || state.locked) return;
   const px = event.clientX;
   const py = event.clientY;
   if (typeof px !== 'number' || typeof py !== 'number') return;
 
   const now = Date.now();
-  if (now - no.lastFlee < FLEE_COOLDOWN) return;
+  if (now - lastFlee < FLEE_COOLDOWN) return;
 
-  const rect = no.el.getBoundingClientRect();
+  const rect = btnNo.getBoundingClientRect();
   const cx = rect.left + rect.width / 2;
   const cy = rect.top + rect.height / 2;
 
   if (Math.hypot(cx - px, cy - py) > FLEE_RADIUS) return;
 
-  no.lastFlee = now;
-  dodge(no, px, py);
+  lastFlee = now;
+  moveAway(px, py);
+  playDodgeSound();
+}
+
+function startle(event) {
+  if (!state.started || state.locked) return;
+  if (event.cancelable) event.preventDefault();
+  lastFlee = Date.now();
+  moveAway(event.clientX, event.clientY);
+  playDodgeSound();
 }
 
 function lockButtons() {
   state.locked = true;
-  yes.el.disabled = true;
-  no.el.disabled = true;
-  yes.el.style.pointerEvents = 'none';
-  no.el.style.pointerEvents = 'none';
-  yes.el.style.opacity = '0.4';
-  no.el.style.opacity = '0.4';
+  btnYes.disabled = true;
+  btnNo.disabled = true;
+  btnYes.style.pointerEvents = 'none';
+  btnNo.style.pointerEvents = 'none';
+  btnYes.style.opacity = '0.4';
+  btnNo.style.opacity = '0.4';
 }
 
 function unlockButtons() {
   state.locked = false;
-  yes.el.disabled = false;
-  no.el.disabled = false;
-  yes.el.style.pointerEvents = '';
-  no.el.style.pointerEvents = '';
-  yes.el.style.opacity = '1';
-  no.el.style.opacity = '1';
-}
-
-function resetButtons() {
-  unlockButtons();
-  yes.dodges = 0;
-  no.dodges = 0;
-  no.lastFlee = 0;
-  yes.tamed = true;
-  no.tamed = false;
-  yes.el.style.animation = '';
-  no.el.style.animation = '';
-  resetPosition(yes);
-  resetPosition(no);
+  btnYes.disabled = false;
+  btnNo.disabled = false;
+  btnYes.style.pointerEvents = '';
+  btnNo.style.pointerEvents = '';
+  btnYes.style.opacity = '1';
+  btnNo.style.opacity = '1';
 }
 
 function renderQuestion() {
   questionEl.textContent = current().q;
-  subtitle.textContent = 'Кнопка «Нет» убегает по всему экрану. Жми «Да».';
+  subtitle.textContent = 'Отвечай честно, результат зависит от тебя';
   answerEl.hidden = true;
   answerEl.textContent = '';
 }
@@ -470,7 +424,9 @@ function advance() {
   clearTimeout(state.advanceTimer);
   if (state.index >= QUESTIONS.length - 1) return;
   state.index++;
-  resetButtons();
+  unlockButtons();
+  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+  placeNoButton();
   renderQuestion();
 }
 
@@ -486,8 +442,7 @@ function finishTest() {
 }
 
 function onYes() {
-  if (state.locked) return;
-  unlockAll();
+  if (!state.started || state.locked) return;
   lockButtons();
   state.scores.yes++;
 
@@ -502,22 +457,6 @@ function onYes() {
   state.advanceTimer = setTimeout(advance, 2600);
 }
 
-function onNo() {
-  if (state.locked || !no.tamed) return;
-  unlockAll();
-  lockButtons();
-  state.scores.no++;
-
-  if (isTrap()) {
-    finishTest();
-    return;
-  }
-
-  answerEl.textContent = current().no;
-  answerEl.hidden = false;
-  state.advanceTimer = setTimeout(advance, 2600);
-}
-
 function reset() {
   clearTimeout(state.advanceTimer);
   state.index = 0;
@@ -526,45 +465,48 @@ function reset() {
   wall.classList.remove('on');
   document.body.classList.remove('party');
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  resetButtons();
+  unlockButtons();
+  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+  placeNoButton();
   renderQuestion();
 }
+
+function start() {
+  if (state.started) return;
+  state.started = true;
+
+  unlockAll();
+  playStartSound();
+
+  landing.classList.add('is-hidden');
+  card.classList.remove('is-hidden');
+  placeNoButton();
+  renderQuestion();
+}
+
+btnStart.addEventListener('click', start);
 
 document.addEventListener('pointermove', flee, { passive: true });
 
 document.addEventListener('pointerdown', (event) => {
-  unlockAll();
-
+  if (!state.started) return;
   const target = event.target.closest('.btn-no');
-  if (!target || state.locked || no.tamed) return;
+  if (!target || state.locked) return;
   event.preventDefault();
-  dodge(no, event.clientX, event.clientY);
+  startle(event);
 }, { passive: false });
 
 btnYes.addEventListener('click', onYes);
-btnNo.addEventListener('click', onNo);
+btnNo.addEventListener('click', (event) => {
+  event.preventDefault();
+  startle(event);
+});
 btnReset.addEventListener('click', reset);
 
-no.el.addEventListener('pointerenter', (event) => {
-  unlockAll();
-  if (event.cancelable) event.preventDefault();
-  no.lastFlee = Date.now();
-  dodge(no, event.clientX, event.clientY);
-});
-
-no.el.addEventListener('touchstart', (event) => {
-  unlockAll();
-  if (event.cancelable) event.preventDefault();
-  no.lastFlee = Date.now();
-  dodge(no, event.clientX, event.clientY);
-}, { passive: false });
-
-no.el.addEventListener('mousedown', (event) => {
-  if (no.tamed || state.locked) return;
-  if (event.cancelable) event.preventDefault();
-  no.lastFlee = Date.now();
-  dodge(no, event.clientX, event.clientY);
-});
+btnNo.addEventListener('pointerenter', startle);
+btnNo.addEventListener('pointerover', startle);
+btnNo.addEventListener('touchstart', startle, { passive: false });
+btnNo.addEventListener('mousedown', startle);
 
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('contextmenu', (e) => {
@@ -577,19 +519,5 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('resize', () => {
-  if (!no.tamed && !state.locked && no.dodges > 0) {
-    moveAway(no, -99999, -99999);
-  }
+  if (state.started && !state.locked) moveAway(-99999, -99999);
 });
-
-if (isIos) {
-  window.addEventListener('load', () => {
-    setTimeout(() => unlockBar.classList.add('hidden'), 9000);
-  });
-} else {
-  window.addEventListener('load', () => {
-    state.introSpoken = true;
-    setTimeout(() => speak(INTRO_LINE), 400);
-    setTimeout(() => unlockBar.classList.add('hidden'), 6000);
-  });
-}

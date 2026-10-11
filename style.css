@@ -162,6 +162,92 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
 
 .unlock-icon { font-size: 20px; }
 
+.landing {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  justify-content: center;
+}
+
+.landing.is-hidden { display: none; }
+
+.landing-card {
+  width: 100%;
+  padding: 30px 24px 26px;
+  text-align: center;
+  background: rgba(30, 14, 5, .82);
+  border: 3px solid #3f2010;
+  border-radius: 22px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .55), inset 0 0 0 2px rgba(255, 190, 120, .18);
+}
+
+.landing-tag {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 176, 58, .18);
+  color: #ffb03a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.landing-title {
+  font-size: clamp(28px, 7.5vw, 44px);
+  font-weight: 900;
+  line-height: 1.15;
+  text-shadow: 0 3px 0 #5a2a0c;
+  margin-bottom: 12px;
+}
+
+.landing-text {
+  font-size: 16px;
+  line-height: 1.5;
+  opacity: .85;
+  margin-bottom: 18px;
+}
+
+.landing-list {
+  list-style: none;
+  text-align: left;
+  display: inline-block;
+  margin-bottom: 24px;
+}
+
+.landing-list li {
+  position: relative;
+  padding-left: 24px;
+  font-size: 15px;
+  line-height: 1.9;
+  opacity: .9;
+}
+
+.landing-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #48cf76;
+  font-weight: 900;
+}
+
+.btn-start {
+  display: block;
+  width: 100%;
+  background: linear-gradient(#ffb03a, #dd7600);
+}
+
+.landing-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  opacity: .55;
+}
+
+.card.is-hidden { display: none; }
+
 .btn-reset {
   margin-top: 14px;
   padding: 12px 26px;
