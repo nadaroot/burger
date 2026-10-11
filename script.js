@@ -1,5 +1,4 @@
 const wall = document.getElementById('wall');
-const card = document.querySelector('.card');
 const stage = document.getElementById('stage');
 const counter = document.getElementById('counter');
 const questionEl = document.getElementById('question');
@@ -12,29 +11,29 @@ const rain = document.getElementById('rain');
 
 const QUESTIONS = [
   {
-    q: 'Ты сегодня ел что-то, кроме воздуха?',
-    yes: 'Поздравляю. Ты овощ.',
-    no: 'Врёшь. Все врут. Дальше.'
+    q: 'Сколько пальцев на передней ноге у свиньи?',
+    yes: 'Четыре. Как у собаки.',
+    no: 'Не считал? Значит, свинья. Дальше.'
   },
   {
-    q: 'Ты когда-нибудь говорил «я на диете» с полным ртом?',
-    yes: 'Диета — это когда ешь салат и плачешь.',
-    no: 'Значит, ты не на диете. Как и все.'
+    q: 'Сколько букв в слове «бургер»?',
+    yes: 'Шесть: б, у, р, г, е, р. Повтори, а то забыл.',
+    no: 'Считать не умеешь. Ладно, держи дальше.'
   },
   {
-    q: 'Ты храпишь во сне или постоянно?',
-    yes: 'Тсс. Не буди свинью.',
-    no: 'Тогда послушай, как ты отвечаешь на этот вопрос.'
+    q: 'Как называется мясо взрослой свиньи?',
+    yes: 'Свинина. Вкуснее всего — в бургере.',
+    no: 'Тогда как ты её ешь? Ладно, дальше.'
   },
   {
-    q: 'Ты последний раз бегал не за автобусом?',
-    yes: 'Спорт — это дорога до холодильника.',
-    no: 'Беги. Прямо сейчас. Я подожду.'
+    q: 'Сколько часов свинья может не есть?',
+    yes: 'Долго. Но ты столько точно не протянешь.',
+    no: 'И не захочешь. Хватит вопросов.'
   },
   {
-    q: 'Ты можешь посмотреть на салат и не подумать про стейк?',
-    yes: 'Мысль — это уже половина обеда.',
-    no: 'Салат проиграл. Салат всегда проигрывает.'
+    q: 'Какая часть туши свиньи самая жирная?',
+    yes: 'Лопатка. Её и кладут в бургер.',
+    no: 'Неважно. Жирная у тебя вся ты.'
   },
   {
     q: 'Ты жирная свинка?',
@@ -54,13 +53,11 @@ const TAUNTS = [
 
 const MAX_DODGES = 6;
 const MAX_BURGERS = 90;
-const FLEE_RADIUS = 160;
+const FLEE_RADIUS = 170;
 const FLEE_COOLDOWN = 90;
 
 const state = {
   index: 0,
-  dodges: 0,
-  tamed: false,
   locked: false,
   raining: false,
   lastFlee: 0,
@@ -68,8 +65,11 @@ const state = {
   audio: null
 };
 
+const yes = { el: btnYes, home: { top: '26%' }, dodges: 0, tamed: false };
+const no = { el: btnNo, home: { bottom: '8px' }, dodges: 0, tamed: false };
+
 function rand(min, max) {
-  return min + Math.random() * (max - min);
+  return min + Math.max(0, max - min);
 }
 
 function current() {
@@ -191,130 +191,152 @@ function startRain() {
   }
 }
 
-function moveAwayFrom(px, py) {
-  const stageRect = stage.getBoundingClientRect();
-  const yesRect = btnYes.getBoundingClientRect();
-  const noRect = btnNo.getBoundingClientRect();
+function resetPosition(btn) {
+  btn.el.style.left = '50%';
+  btn.el.style.top = btn.home.top || '';
+  btn.el.style.bottom = btn.home.bottom || '';
+  const base = btn === no ? 'translateX(-50%)' : 'translate(-50%, -50%)';
+  btn.el.style.transform = base + ' rotate(0deg)';
+}
 
-  const maxLeft = Math.max(0, stageRect.width - yesRect.width);
-  const noTop = noRect.top - stageRect.top;
-  const maxTop = Math.max(0, Math.min(stageRect.height - yesRect.height, noTop - yesRect.height - 12));
-  const minDistance = Math.max(yesRect.width, yesRect.height) * 1.1 + 50;
+function moveAway(btn, px, py) {
+  const stageRect = stage.getBoundingClientRect();
+  const rect = btn.el.getBoundingClientRect();
+  const other = btn === yes ? no : yes;
+  const otherRect = other.el.getBoundingClientRect();
+
+  const maxLeft = Math.max(0, stageRect.width - rect.width);
+  const maxTop = Math.max(0, stageRect.height - rect.height);
+  const minDistance = Math.max(rect.width, rect.height) * 1.05 + 45;
+  const gap = rect.height + otherRect.height + 18;
 
   let best = null;
   let bestScore = -Infinity;
 
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 80; i++) {
     const left = rand(0, maxLeft);
     const top = rand(0, maxTop);
-    const cx = stageRect.left + left + yesRect.width / 2;
-    const cy = stageRect.top + top + yesRect.height / 2;
+    const cx = stageRect.left + left + rect.width / 2;
+    const cy = stageRect.top + top + rect.height / 2;
+    const otherCx = otherRect.left + otherRect.width / 2;
+    const otherCy = otherRect.top + otherRect.height / 2;
+    const overlap = Math.hypot(cx - otherCx, cy - otherCy) < gap;
     const dist = Math.hypot(cx - px, cy - py);
-    if (dist > bestScore) {
-      bestScore = dist;
+    const score = dist - (overlap ? 260 : 0);
+    if (score > bestScore) {
+      bestScore = score;
       best = { left, top };
     }
-    if (dist >= minDistance) break;
+    if (!overlap && dist >= minDistance) break;
   }
 
-  btnYes.style.left = best.left + 'px';
-  btnYes.style.top = best.top + 'px';
-  btnYes.style.transform = 'rotate(' + rand(-16, 16) + 'deg)';
+  btn.el.style.left = best.left + 'px';
+  btn.el.style.top = best.top + 'px';
+  btn.el.style.bottom = 'auto';
+  btn.el.style.transform = 'rotate(' + rand(-16, 16) + 'deg)';
 }
 
-function tame() {
-  state.tamed = true;
-  btnYes.style.animation = 'none';
-  btnYes.style.left = '50%';
-  btnYes.style.top = '26%';
-  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-  subtitle.textContent = 'Кнопка сдалась. Нажми наконец.';
+function tame(btn) {
+  btn.tamed = true;
+  btn.el.style.animation = 'none';
+  resetPosition(btn);
+  subtitle.textContent = btn === yes ? '«Да» сдалась. Нажми наконец.' : '«Нет» сдался. Нажми наконец.';
   playDodgeSound();
 }
 
-function dodge(px, py) {
-  if (state.tamed || state.locked) return;
+function dodge(btn, px, py) {
+  if (btn.tamed || state.locked) return;
 
-  if (state.dodges + 1 >= MAX_DODGES) {
-    state.dodges++;
-    tame();
+  btn.dodges++;
+
+  if (btn.dodges >= MAX_DODGES) {
+    tame(btn);
     return;
   }
 
-  state.dodges++;
-  moveAwayFrom(px, py);
-  subtitle.textContent = TAUNTS[Math.min(state.dodges, TAUNTS.length - 1)];
+  moveAway(btn, px, py);
+  subtitle.textContent = TAUNTS[Math.min(btn.dodges, TAUNTS.length - 1)];
   playDodgeSound();
 }
 
 function flee(event) {
-  if (state.tamed || state.locked) return;
-  const x = event.clientX;
-  const y = event.clientY;
-  if (typeof x !== 'number' || typeof y !== 'number') return;
+  if (state.locked) return;
+  const px = event.clientX;
+  const py = event.clientY;
+  if (typeof px !== 'number' || typeof py !== 'number') return;
 
   const now = Date.now();
   if (now - state.lastFlee < FLEE_COOLDOWN) return;
 
-  const rect = btnYes.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
+  const targets = [yes, no].filter((b) => !b.tamed);
+  if (!targets.length) return;
 
-  if (Math.hypot(cx - x, cy - y) > FLEE_RADIUS) return;
+  let nearest = null;
+  let nearestDist = Infinity;
+
+  for (const btn of targets) {
+    const rect = btn.el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dist = Math.hypot(cx - px, cy - py);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = btn;
+    }
+  }
+
+  if (!nearest || nearestDist > FLEE_RADIUS) return;
 
   state.lastFlee = now;
-  dodge(x, y);
+  dodge(nearest, px, py);
 }
 
 function lockButtons() {
   state.locked = true;
-  btnYes.disabled = true;
-  btnNo.disabled = true;
-  btnYes.style.pointerEvents = 'none';
-  btnNo.style.pointerEvents = 'none';
-  btnYes.style.opacity = '0.4';
-  btnNo.style.opacity = '0.4';
+  yes.el.disabled = true;
+  no.el.disabled = true;
+  yes.el.style.pointerEvents = 'none';
+  no.el.style.pointerEvents = 'none';
+  yes.el.style.opacity = '0.4';
+  no.el.style.opacity = '0.4';
 }
 
 function unlockButtons() {
   state.locked = false;
-  btnYes.disabled = false;
-  btnNo.disabled = false;
-  btnYes.style.pointerEvents = '';
-  btnNo.style.pointerEvents = '';
-  btnYes.style.opacity = '1';
-  btnNo.style.opacity = '1';
+  yes.el.disabled = false;
+  no.el.disabled = false;
+  yes.el.style.pointerEvents = '';
+  no.el.style.pointerEvents = '';
+  yes.el.style.opacity = '1';
+  no.el.style.opacity = '1';
+}
+
+function renderQuestion() {
+  questionEl.textContent = current().q;
+  counter.textContent = 'Вопрос ' + (state.index + 1) + ' из ' + QUESTIONS.length;
+  subtitle.textContent = 'Обе кнопки убегают от пальца. Трусливые.';
+  answerEl.hidden = true;
+  answerEl.textContent = '';
 }
 
 function advance() {
   clearTimeout(state.advanceTimer);
   if (isFinal()) return;
-
   state.index++;
-  state.dodges = 0;
-  state.tamed = false;
+  yes.dodges = 0;
+  no.dodges = 0;
+  yes.tamed = false;
+  no.tamed = false;
   unlockButtons();
-  answerEl.hidden = true;
-  answerEl.textContent = '';
-
-  btnYes.style.animation = '';
-  btnYes.style.left = '50%';
-  btnYes.style.top = '26%';
-  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-
-  questionEl.textContent = current().q;
-  counter.textContent = 'Вопрос ' + (state.index + 1) + ' из ' + QUESTIONS.length;
-  subtitle.textContent = 'Кнопка «Да» убегает. Она трусливая.';
-}
-
-function showAnswer(text, nextIn) {
-  answerEl.textContent = text;
-  answerEl.hidden = false;
-  if (nextIn) state.advanceTimer = setTimeout(advance, nextIn);
+  yes.el.style.animation = '';
+  no.el.style.animation = '';
+  resetPosition(yes);
+  resetPosition(no);
+  renderQuestion();
 }
 
 function onYes() {
-  if (!state.tamed || state.locked) return;
+  if (!yes.tamed || state.locked) return;
   lockButtons();
   unlockAudio();
 
@@ -328,13 +350,16 @@ function onYes() {
     return;
   }
 
-  subtitle.textContent = 'Кнопка согласилась. И ответил(а).';
-  showAnswer(current().yes, 2600);
+  subtitle.textContent = 'Ответ по вопросу выше.';
+  answerEl.textContent = current().yes;
+  answerEl.hidden = false;
   playDodgeSound();
+  state.advanceTimer = setTimeout(advance, 3000);
 }
 
 function onNo() {
-  if (state.locked) return;
+  if (!no.tamed || state.locked) return;
+  lockButtons();
   unlockAudio();
   playDodgeSound();
 
@@ -345,14 +370,15 @@ function onNo() {
     return;
   }
 
-  advance();
+  subtitle.textContent = current().no;
+  answerEl.textContent = 'Ну ладно, держи следующий.';
+  answerEl.hidden = false;
+  state.advanceTimer = setTimeout(advance, 2200);
 }
 
 function reset() {
   clearTimeout(state.advanceTimer);
   state.index = 0;
-  state.dodges = 0;
-  state.tamed = false;
   state.locked = false;
   rain.innerHTML = '';
   wall.classList.remove('on');
@@ -360,41 +386,41 @@ function reset() {
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
   unlockButtons();
-  btnYes.style.animation = '';
-  btnYes.style.left = '50%';
-  btnYes.style.top = '26%';
-  btnYes.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-
-  answerEl.hidden = true;
-  answerEl.textContent = '';
-  questionEl.textContent = current().q;
-  counter.textContent = 'Вопрос 1 из ' + QUESTIONS.length;
-  subtitle.textContent = 'Кнопка «Да» убегает. Она трусливая.';
+  yes.dodges = 0;
+  no.dodges = 0;
+  yes.tamed = false;
+  no.tamed = false;
+  yes.el.style.animation = '';
+  no.el.style.animation = '';
+  resetPosition(yes);
+  resetPosition(no);
+  renderQuestion();
 }
 
 document.addEventListener('pointermove', flee, { passive: true });
+
 document.addEventListener('pointerdown', (event) => {
-  if (event.target.closest('.btn-yes')) {
-    event.preventDefault();
-    dodge(event.clientX, event.clientY);
-  }
+  const target = event.target.closest('.btn-yes, .btn-no');
+  if (!target || state.locked) return;
+  const btn = target === btnYes ? yes : no;
+  if (btn.tamed) return;
+  event.preventDefault();
+  dodge(btn, event.clientX, event.clientY);
 }, { passive: false });
 
-btnYes.addEventListener('click', (event) => {
-  if (state.tamed) onYes();
-  else if (event.detail === 0) onYes();
-});
-
+btnYes.addEventListener('click', onYes);
 btnNo.addEventListener('click', onNo);
 btnReset.addEventListener('click', reset);
 
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('contextmenu', (e) => {
-  if (e.target.closest('.btn')) e.preventDefault();
+  if (e.target.closest('.btn-yes, .btn-no')) e.preventDefault();
 });
 
 window.addEventListener('resize', () => {
-  if (!state.tamed && !state.locked && state.dodges > 0) {
-    moveAwayFrom(-99999, -99999);
-  }
+  [yes, no].forEach((btn) => {
+    if (!btn.tamed && !state.locked && btn.dodges > 0) {
+      moveAway(btn, -99999, -99999);
+    }
+  });
 });

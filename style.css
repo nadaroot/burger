@@ -116,6 +116,10 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
 
 .btn:active { transform: translateY(5px) scale(.97); }
 
+.btn-yes:active { transform: translate(-50%, calc(-50% + 5px)) scale(.97); }
+
+.btn-no:active { transform: translate(-50%, 5px) scale(.97); }
+
 .btn-yes {
   position: absolute;
   left: 50%;
@@ -129,9 +133,10 @@ body.party .card { animation: quake .22s ease-in-out infinite; }
 .btn-no {
   position: absolute;
   left: 50%;
+  top: auto;
   bottom: 8px;
-  transform: translateX(-50%);
   background: linear-gradient(#48cf76, #1c8a46);
+  transform: translate(-50%, 0) rotate(0deg);
   z-index: 3;
 }
 
