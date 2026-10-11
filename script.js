@@ -11,31 +11,49 @@ const rain = document.getElementById('rain');
 
 const QUESTIONS = [
   {
-    q: 'Сколько пальцев на передней ноге у свиньи?',
-    yes: 'Четыре. Как у собаки.',
-    no: 'Не считал? Значит, свинья. Дальше.'
+    kind: 'basic',
+    q: 'Ты сегодня вообще спал?',
+    yes: 'Глаза открыты — считай, спал.',
+    no: 'Значит, ты не спишь. И не будешь.'
   },
   {
-    q: 'Сколько букв в слове «бургер»?',
-    yes: 'Шесть: б, у, р, г, е, р. Повтори, а то забыл.',
-    no: 'Считать не умеешь. Ладно, держи дальше.'
+    kind: 'basic',
+    q: 'Ты сегодня пил воду или только кофе?',
+    yes: 'Вода — это хорошо. Ты почти человек.',
+    no: 'Только кофе. Уже не человек.'
   },
   {
-    q: 'Как называется мясо взрослой свиньи?',
-    yes: 'Свинина. Вкуснее всего — в бургере.',
-    no: 'Тогда как ты её ешь? Ладно, дальше.'
+    kind: 'basic',
+    q: 'Ты обычно делаешь то, что обещал себе вчера?',
+    yes: 'Дисциплина. Уважаю.',
+    no: 'Как и обещал: никогда.'
   },
   {
-    q: 'Сколько часов свинья может не есть?',
-    yes: 'Долго. Но ты столько точно не протянешь.',
-    no: 'И не захочешь. Хватит вопросов.'
+    kind: 'persona',
+    q: 'На вечеринке ты пойдёшь танцевать, даже если не умеешь?',
+    yes: 'Ты — тот самый человек в углу.',
+    no: 'Ты наблюдаешь. Все за тобой наблюдают.'
   },
   {
-    q: 'Какая часть туши свиньи самая жирная?',
-    yes: 'Лопатка. Её и кладут в бургер.',
-    no: 'Неважно. Жирная у тебя вся ты.'
+    kind: 'persona',
+    q: 'Тебя бесит, когда тебе перебивают?',
+    yes: 'Тип личности: взрывной.',
+    no: 'Тип личности: тёплый и пушистый.'
   },
   {
+    kind: 'persona',
+    q: 'Ты планируешь выходные заранее или в субботу утром?',
+    yes: 'Стратег. Это всё равно не поможет.',
+    no: 'Спонтанный. Очень даже в тебе.'
+  },
+  {
+    kind: 'persona',
+    q: 'Ты скорее съешь то, что лежит дома, чем пойдёшь в магазин?',
+    yes: 'Логика. Хотя и путь к холодильнику.',
+    no: 'Приключение. А счёт — потом.'
+  },
+  {
+    kind: 'trap',
     q: 'Ты жирная свинка?',
     yes: 'ИДИ ЕСТЬ БУРГЕРЫ!',
     no: 'Не ври мне. Ты жирная свинка.'
@@ -51,7 +69,10 @@ const TAUNTS = [
   'Всё, сдаюсь. Жми.'
 ];
 
-const MAX_DODGES = 6;
+const RESULT_TITLE = 'ТИП ЛИЧНОСТИ: ЖИРНАЯ СВИНКА';
+const RESULT_SUB = 'Иди есть бургеры';
+
+const MAX_DODGES = 5;
 const MAX_BURGERS = 90;
 const FLEE_RADIUS = 190;
 const FLEE_COOLDOWN = 70;
@@ -60,8 +81,10 @@ const state = {
   index: 0,
   locked: false,
   raining: false,
+  scores: { yes: 0, no: 0 },
   advanceTimer: 0,
-  audio: null
+  audio: null,
+  mp3: null
 };
 
 const yes = { el: btnYes, home: { top: '26%' }, dodges: 0, tamed: false, lastFlee: 0 };
@@ -75,8 +98,8 @@ function current() {
   return QUESTIONS[state.index];
 }
 
-function isFinal() {
-  return state.index === QUESTIONS.length - 1;
+function isTrap() {
+  return current().kind === 'trap';
 }
 
 function unlockAudio() {
@@ -144,13 +167,102 @@ function playBurgerSound() {
   bass.stop(ctx.currentTime + 0.65);
 }
 
+function synthMoan(ctx, startOffset, length) {
+  const t = ctx.currentTime + startOffset;
+  const end = t + length;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(185, t);
+  osc.frequency.linearRampToValueAtTime(315, t + length * 0.28);
+  osc.frequency.linearRampToValueAtTime(240, t + length * 0.55);
+  osc.frequency.linearRampToValueAtTime(165, end);
+
+  const vibrato = ctx.createOscillator();
+  vibrato.frequency.value = 5.4;
+  const vibratoGain = ctx.createGain();
+  vibratoGain.gain.setValueAtTime(0, t);
+  vibratoGain.gain.linearRampToValueAtTime(16, t + length * 0.3);
+  vibrato.connect(vibratoGain).connect(osc.frequency);
+
+  const breath = ctx.createOscillator();
+  breath.type = 'sawtooth';
+  breath.frequency.setValueAtTime(370, t);
+  breath.frequency.linearRampToValueAtTime(620, t + length * 0.3);
+  breath.frequency.linearRampToValueAtTime(320, end);
+  const breathGain = ctx.createGain();
+  breathGain.gain.value = 0.12;
+
+  const formantA = ctx.createBiquadFilter();
+  formantA.type = 'bandpass';
+  formantA.frequency.value = 720;
+  formantA.Q.value = 5;
+
+  const formantB = ctx.createBiquadFilter();
+  formantB.type = 'bandpass';
+  formantB.frequency.value = 1450;
+  formantB.Q.value = 7;
+  const formantBGain = ctx.createGain();
+  formantBGain.gain.value = 0.45;
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime(0.55, t + length * 0.22);
+  env.gain.setValueAtTime(0.55, t + length * 0.5);
+  env.gain.exponentialRampToValueAtTime(0.0001, end);
+
+  osc.connect(formantA);
+  breath.connect(breathGain).connect(formantA);
+  osc.connect(formantB);
+  formantB.connect(formantBGain).connect(env);
+  formantA.connect(env);
+  env.connect(ctx.destination);
+
+  osc.start(t);
+  vibrato.start(t);
+  breath.start(t);
+  osc.stop(end);
+  vibrato.stop(end);
+  breath.stop(end);
+}
+
+function loadMoanTrack() {
+  if (state.mp3 !== null) return Promise.resolve(state.mp3);
+  return fetch('assets/moan.mp3', { cache: 'force-cache' })
+    .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('no file'))))
+    .then((blob) => {
+      state.mp3 = URL.createObjectURL(blob);
+      return state.mp3;
+    })
+    .catch(() => {
+      state.mp3 = false;
+      return false;
+    });
+}
+
+function playMoans() {
+  const ctx = unlockAudio();
+  if (!ctx) return;
+
+  loadMoanTrack().then((url) => {
+    if (url) {
+      const audio = new Audio(url);
+      audio.volume = 0.85;
+      audio.play().catch(() => synthMoan(ctx, 0, 4.2));
+      return;
+    }
+    synthMoan(ctx, 0, 4.2);
+    synthMoan(ctx, 4.4, 3.4);
+  });
+}
+
 function speak(text) {
   if (!('speechSynthesis' in window)) return;
   try {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'ru-RU';
-    utter.rate = 0.9;
-    utter.pitch = 0.75;
+    utter.rate = 0.85;
+    utter.pitch = 1.35;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   } catch (e) {
@@ -194,7 +306,7 @@ function resetPosition(btn) {
   btn.el.style.left = '50%';
   btn.el.style.top = btn.home.top || '';
   btn.el.style.bottom = btn.home.bottom || '';
-  const base = btn === no ? 'translateX(-50%)' : 'translate(-50%, -50%)';
+  const base = btn === no ? 'translate(-50%, 0)' : 'translate(-50%, -50%)';
   btn.el.style.transform = base + ' rotate(0deg)';
 }
 
@@ -306,9 +418,25 @@ function unlockButtons() {
   no.el.style.opacity = '1';
 }
 
+function resetButtons() {
+  unlockButtons();
+  yes.dodges = 0;
+  no.dodges = 0;
+  yes.lastFlee = 0;
+  no.lastFlee = 0;
+  yes.tamed = false;
+  no.tamed = false;
+  yes.el.style.animation = '';
+  no.el.style.animation = '';
+  resetPosition(yes);
+  resetPosition(no);
+}
+
 function renderQuestion() {
   questionEl.textContent = current().q;
-  counter.textContent = 'Вопрос ' + (state.index + 1) + ' из ' + QUESTIONS.length;
+  const total = QUESTIONS.length;
+  const kind = current().kind === 'trap' ? 'Главный вопрос' : current().kind === 'persona' ? 'Тест личности' : 'Разминка';
+  counter.textContent = kind + ' · ' + (state.index + 1) + ' из ' + total;
   subtitle.textContent = 'Обе кнопки убегают от пальца. Трусливые.';
   answerEl.hidden = true;
   answerEl.textContent = '';
@@ -316,83 +444,69 @@ function renderQuestion() {
 
 function advance() {
   clearTimeout(state.advanceTimer);
-  if (isFinal()) return;
+  if (state.index >= QUESTIONS.length - 1) return;
   state.index++;
-  yes.dodges = 0;
-  no.dodges = 0;
-  yes.lastFlee = 0;
-  no.lastFlee = 0;
-  yes.tamed = false;
-  no.tamed = false;
-  unlockButtons();
-  yes.el.style.animation = '';
-  no.el.style.animation = '';
-  resetPosition(yes);
-  resetPosition(no);
+  resetButtons();
   renderQuestion();
+}
+
+function finishTest() {
+  questionEl.textContent = RESULT_TITLE;
+  counter.textContent = 'Результат · ' + QUESTIONS.length + ' из ' + QUESTIONS.length;
+  subtitle.textContent = 'Ответов «да»: ' + state.scores.yes + '. Ответов «нет»: ' + state.scores.no + '.';
+  answerEl.textContent = RESULT_SUB + '!';
+  answerEl.hidden = false;
+  playBurgerSound();
+  startRain();
+  playMoans();
+  setTimeout(() => speak('Иди есть бургеры!'), 500);
 }
 
 function onYes() {
   if (!yes.tamed || state.locked) return;
   lockButtons();
   unlockAudio();
+  state.scores.yes++;
 
-  if (isFinal()) {
-    subtitle.textContent = 'Ты жирная свинка. Иди есть бургеры.';
-    answerEl.textContent = 'ИДИ ЕСТЬ БУРГЕРЫ!';
-    answerEl.hidden = false;
-    playBurgerSound();
-    startRain();
-    setTimeout(() => speak('Иди есть бургеры!'), 400);
+  if (isTrap()) {
+    finishTest();
     return;
   }
 
-  subtitle.textContent = 'Ответ по вопросу выше.';
+  subtitle.textContent = current().yes;
   answerEl.textContent = current().yes;
   answerEl.hidden = false;
   playDodgeSound();
-  state.advanceTimer = setTimeout(advance, 3000);
+  state.advanceTimer = setTimeout(advance, 2600);
 }
 
 function onNo() {
   if (!no.tamed || state.locked) return;
   lockButtons();
   unlockAudio();
-  playDodgeSound();
+  state.scores.no++;
 
-  if (isFinal()) {
-    subtitle.textContent = 'Ну ты и свинья.';
-    answerEl.textContent = current().no;
-    answerEl.hidden = false;
+  if (isTrap()) {
+    finishTest();
     return;
   }
 
   subtitle.textContent = current().no;
-  answerEl.textContent = 'Ну ладно, держи следующий.';
+  answerEl.textContent = current().no;
   answerEl.hidden = false;
-  state.advanceTimer = setTimeout(advance, 2200);
+  state.advanceTimer = setTimeout(advance, 2600);
 }
 
 function reset() {
   clearTimeout(state.advanceTimer);
   state.index = 0;
-  state.locked = false;
+  state.scores = { yes: 0, no: 0 };
   rain.innerHTML = '';
   wall.classList.remove('on');
   document.body.classList.remove('party');
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-
-  unlockButtons();
-  yes.dodges = 0;
-  no.dodges = 0;
-  yes.lastFlee = 0;
-  no.lastFlee = 0;
-  yes.tamed = false;
-  no.tamed = false;
-  yes.el.style.animation = '';
-  no.el.style.animation = '';
-  resetPosition(yes);
-  resetPosition(no);
+  if (state.mp3 && typeof state.mp3 === 'string') state.mp3 = null;
+  resetButtons();
   renderQuestion();
 }
 
