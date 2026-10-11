@@ -8,7 +8,7 @@ const subtitle = document.getElementById('subtitle');
 const answerEl = document.getElementById('answer');
 const btnYes = document.getElementById('btnYes');
 const btnNo = document.getElementById('btnNo');
-const rain = document.getElementById('rain');
+const blackout = document.getElementById('blackout');
 const player = document.getElementById('player');
 
 const SILENT_WAV = 'data:audio/wav;base64,UklGRqQCAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -52,7 +52,6 @@ const state = {
   started: false,
   index: 0,
   locked: false,
-  raining: false,
   scores: { yes: 0, no: 0 },
   advanceTimer: 0,
   audio: null,
@@ -244,65 +243,10 @@ player.addEventListener('error', () => {
   state.moanOk = false;
 });
 
-const falling = [];
-let tickerId = null;
-
-function tick() {
-  const now = Date.now();
-  for (let i = falling.length - 1; i >= 0; i--) {
-    const item = falling[i];
-    const progress = Math.min(1, (now - item.start) / item.duration);
-    const y = item.from + (item.to - item.from) * progress;
-    const x = item.drift * progress;
-    const rotation = item.spin * progress;
-    item.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + rotation.toFixed(1) + 'deg)';
-    if (progress >= 1) {
-      item.el.remove();
-      falling.splice(i, 1);
-    }
-  }
-}
-
-function startTicker() {
-  if (tickerId !== null) return;
-  tickerId = setInterval(tick, 33);
-}
-
-function spawnBurger() {
-  const burger = document.createElement('div');
-  burger.className = 'burger';
-  burger.textContent = Math.random() > 0.25 ? '\u{1F354}' : '\u{1F35F}';
-  burger.style.left = rand(-4, 96) + 'vw';
-  burger.style.setProperty('--size', rand(42, 120) + 'px');
-  burger.style.opacity = String(rand(0.8, 1));
-  burger.style.zIndex = String(5 + Math.floor(Math.random() * 4));
-  burger.style.transform = 'translate3d(0,-180px,0)';
-  rain.appendChild(burger);
-
-  falling.push({
-    el: burger,
-    start: Date.now(),
-    duration: rand(1100, 2200),
-    from: -180,
-    to: viewport().h + 220,
-    drift: rand(-40, 40),
-    spin: rand(-620, 620)
-  });
-
-  startTicker();
-}
-
-function startRain() {
+function goBlack() {
   wall.classList.add('on');
+  blackout.classList.add('on');
   document.body.classList.add('party');
-  if (state.raining) return;
-  state.raining = true;
-
-  for (let wave = 0; wave < 10; wave++) {
-    for (let i = 0; i < 14; i++) {
-      setTimeout(spawnBurger, wave * 900 + i * rand(40, 90));
-    }
-  }
 }
 
 function viewport() {
@@ -444,7 +388,7 @@ function finishTest() {
   answerEl.textContent = RESULT_SUB + '!';
   answerEl.hidden = false;
   playBurgerSound();
-  startRain();
+  goBlack();
   playMoans();
 }
 
@@ -476,10 +420,9 @@ function reset() {
   clearTimeout(state.advanceTimer);
   state.index = 0;
   state.scores = { yes: 0, no: 0 };
-  rain.innerHTML = '';
   wall.classList.remove('on');
+  blackout.classList.remove('on');
   document.body.classList.remove('party');
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   state.locked = true;
   renderQuestion();
   unlockButtons();
@@ -533,7 +476,7 @@ document.addEventListener('contextmenu', (e) => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) player.pause();
-  else if (state.raining && state.moanOk && player.src) player.play().catch(() => {});
+  else if (player.src && !player.ended) player.play().catch(() => {});
 });
 
 window.addEventListener('resize', () => {
